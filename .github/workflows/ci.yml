@@ -154,7 +154,13 @@ jobs:
 
       - name: Package .deb
         run: |
-          VERSION="${GITHUB_REF_NAME#v}"
+          # tag(v1.2.3) 用标签版本;普通 push 用 0.0.0 占位
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            VERSION="${GITHUB_REF_NAME#v}"
+          else
+            VERSION="0.0.0"
+          fi
+          echo "打包版本: $VERSION"
           bash scripts/package_deb.sh "$VERSION" build/linux/x64/release/bundle amd64
 
       - name: Upload Linux artifact
