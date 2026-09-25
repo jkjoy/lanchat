@@ -1,5 +1,14 @@
 # LanChat 更新日志
 
+## v1.1.0 (2026-09-25)
+
+新增 Linux 桌面版,提供 Debian/Ubuntu 的 .deb 安装包。
+
+### 变更
+- 新增 Linux 平台支持(Flutter Linux 桌面)
+- GitHub Actions 新增 `Build Linux (.deb)` job:构建 release bundle 并打包为 `lanchat_<ver>_amd64.deb`
+- Release 自动附带 `.deb` 安装包
+
 ## v1.0.0 (2026-09-25)
 
 首个发布版本:局域网即时通讯应用,三端(Windows/Android/macOS)全对等 Mesh 组网。
