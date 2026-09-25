@@ -181,6 +181,7 @@ late DeviceDiscovery _discovery;
     // 初始化本地通知(仅移动/桌面支持的平台)。
     if (LocalNotifier.supported) {
       await notifier.init();
+      await notifier.requestPermission();
     }
     // Android 需持有组播锁才能收到 UDP 广播/组播(发现与收消息的前提)。
     await PlatformKeepAlive.acquireMulticastLock();
@@ -208,6 +209,9 @@ late DeviceDiscovery _discovery;
       );
     }
     _emitGroups();
+
+    // 恢复聊天历史(私聊/群发/群聊),否则重启后历史只存在于搜索里。
+    await loadHistory();
 
     _discovery = DeviceDiscovery(self, serverPort: _conn.serverPort);
     _foundSub = _discovery.found.listen(_onPeerFound);
@@ -304,6 +308,55 @@ List<ChatMessage> get currentMessages {
               ts: r.ts,
             ))
         .toList();
+  }
+
+  /// 从数据库恢复会话历史(私聊/群发/群聊)。启动时与需要时均可调用。
+  Future<void> loadHistory() async {
+    final rows = await _db.loadAllMessages();
+    for (final r in rows) {
+      final peerId = r.peerId;
+      final outbound = r.direction == 0;
+      final payload = r.payload ?? '';
+
+      if (peerId.startsWith('group-')) {
+        // 群消息:发出的存纯文本,收到的存 "(发送者) 文本"。
+        String senderName;
+        String text;
+        if (outbound) {
+          senderName = self.name;
+          text = payload;
+        } else {
+          final m = RegExp(r'^\((.+?)\) (.*)$').firstMatch(payload);
+          senderName = m?.group(1) ?? '';
+          text = m?.group(2) ?? payload;
+        }
+        final list = _groupSessions.putIfAbsent(peerId, () => []);
+        if (list.any((m) => m.id == r.id)) continue;
+        list.add(GroupMessage(
+          id: r.id,
+          groupId: peerId,
+          senderId: outbound ? self.id : '',
+          senderName: senderName,
+          text: text,
+          ts: r.ts,
+          outbound: outbound,
+        ));
+        continue;
+      }
+
+      // 私聊与群发:直接进 _sessions。
+      final list = _sessions.putIfAbsent(peerId, () => []);
+      if (list.any((m) => m.id == r.id)) continue;
+      list.add(ChatMessage(
+        id: r.id,
+        peerId: peerId,
+        outbound: outbound,
+        text: payload,
+        ts: r.ts,
+        status: r.status,
+      ));
+    }
+    _refreshMessages();
   }
 
 void select(String? peerId) {
@@ -531,9 +584,29 @@ void select(String? peerId) {
     await _conn.connectTo(peer);
   }
 
-  Future<void> renameSelf(String name) async {
-    // 名称变更通过 Identity 持久化；重连已连接的设备以广播新名称。
+Future<void> renameSelf(String name) async {
+    // 名称变更通过 Identity 持久化;重连已连接的设备以广播新名称。
     await Identity.saveName(name);
+  }
+
+  /// 仅供测试注入连接状态回调(触发僵尸条目清理等逻辑)。
+  @visibleForTesting
+  void debugOnStatusChanged(Peer peer, bool connected) {
+    _onStatusChanged(peer, connected);
+  }
+
+  /// 仅供测试:仅登记手动添加条目,不发起拨号(不依赖 start())。
+  @visibleForTesting
+  void debugAddManualPeerEntry(String host) {
+    _upsertPeer(Peer(
+      id: 'manual-${host.replaceAll('.', '-')}',
+      name: host,
+      platform: 'unknown',
+      host: host,
+      port: ConnectionManager.defaultPort,
+      lastSeen: DateTime.now(),
+      online: false,
+    ));
   }
 
   // ---------- 内部 ----------
@@ -598,7 +671,7 @@ void select(String? peerId) {
     ));
   }
 
-  void _onStatusChanged(Peer peer, bool connected) {
+void _onStatusChanged(Peer peer, bool connected) {
     final p = _peers[peer.id];
     if (p == null) {
       _peers[peer.id] = peer;
@@ -607,8 +680,22 @@ void select(String? peerId) {
       p.host = peer.host ?? p.host;
       p.port = peer.port ?? p.port;
     }
+    // 清理手动添加的僵尸条目:真实设备以真实 ID 上线后,
+    // 同 host 的 manual-* 条目已无意义(会话挂在真实 ID 下)。
+    if (connected && peer.host != null) {
+      final stale = _peers.keys
+          .where((id) =>
+              id.startsWith('manual-') &&
+              _peers[id]?.host == peer.host &&
+              id != peer.id)
+          .toList();
+      for (final id in stale) {
+        _peers.remove(id);
+        debugPrint('[peer] 移除手动添加的重复条目 $id (真实设备 $peer.id 已上线)');
+      }
+    }
     _emitPeers();
-    // 重连成功：补发该对端的 pending 消息（恢复会话上下文）。
+    // 重连成功:补发该对端的 pending 消息(恢复会话上下文)。
     if (connected) {
       _flushPendingFor(peer.id);
     }
@@ -736,6 +823,21 @@ debugPrint('[resend] 补发 pending 消息完成 ($peerId)');
         debugPrint('[group] 解密失败来自 ${env.from}');
         return;
       }
+      // 去重:同一群消息 ID 不重复入库/显示。
+      final existingList = _groupSessions[gid];
+      if (existingList != null && existingList.any((m) => m.id == env.id)) {
+        if (env.from != self.id) {
+          _conn.send(env.from, Envelope(
+            type: Envelope.typeGroupReceipt,
+            from: self.id,
+            to: env.from,
+            id: const Uuid().v4(),
+            ts: DateTime.now().millisecondsSinceEpoch,
+            payload: {'group_id': gid, 'ack': env.id},
+          ));
+        }
+        return;
+      }
       final senderName = peer(env.from)?.name ?? env.from;
       final gm = GroupMessage(
         id: env.id,
@@ -817,6 +919,14 @@ void _onIncomingChat(Envelope env, Peer peer) async {
       text = clear;
     }
 
+    // 去重:离线补发会以同一消息 ID 重发,已存在则只补一条回执。
+    final existingList = _sessions[peer.id];
+    if (existingList != null && existingList.any((m) => m.id == env.id)) {
+      _conn.send(peer.id,
+          Envelope.receipt(from: self.id, to: peer.id, ackId: env.id));
+      return;
+    }
+
     final msg = ChatMessage(
       id: env.id,
       peerId: peer.id,
@@ -863,6 +973,11 @@ if (peer.id == selectedPeerNotifier.value) _refreshMessages();
       ts: env.ts,
       status: 'delivered',
     );
+    // 去重:同 ID 的群发消息不重复入库/显示。
+    final broadcastList = _sessions['broadcast'];
+    if (broadcastList != null && broadcastList.any((m) => m.id == env.id)) {
+      return;
+    }
     _sessions.putIfAbsent('broadcast', () => []).add(msg);
     _db.insertMessage(MessageRow(
       id: msg.id,
@@ -896,6 +1011,8 @@ if (peer.id == selectedPeerNotifier.value) _refreshMessages();
         if (list[i].id == ackId && list[i].outbound) {
           list[i] = list[i].copyWith(status: 'delivered');
           changedPeerId = entry.key;
+          // 回执落库,重启后历史状态准确,避免补发误判。
+          _db.updateMessageStatus(ackId, 'delivered');
           break;
         }
       }

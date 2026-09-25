@@ -142,6 +142,28 @@ class LocalDatabase {
     );
     return rows.map(MessageRow.fromMap).toList();
   }
+
+  /// 加载全部消息(按时间正序),用于启动时恢复会话历史。
+  Future<List<MessageRow>> loadAllMessages({int limit = 5000}) async {
+    final db = await open();
+    final rows = await db.query(
+      'messages',
+      orderBy: 'ts ASC',
+      limit: limit,
+    );
+    return rows.map(MessageRow.fromMap).toList();
+  }
+
+  /// 更新消息状态(送达回执落库)。
+  Future<void> updateMessageStatus(String id, String status) async {
+    final db = await open();
+    await db.update(
+      'messages',
+      {'status': status},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
 }
 
 class PeerRow {
