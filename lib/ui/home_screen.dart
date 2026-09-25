@@ -353,56 +353,65 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildMobile(BuildContext context) {
-    // 有选中会话(私聊对端 / 群 / 群发)时进入会话视图。
-    final selected = widget.service.selectedPeerNotifier.value;
-    final selectedKind =
-        selected == null ? 'none' : (selected.startsWith('group-') ? 'group' : (selected == 'broadcast' ? 'broadcast' : 'peer'));
-    final inChat = selected != null &&
-        (selectedKind == 'peer' ? widget.service.peer(selected) != null : true);
+    // 选中态驱动:私聊对端 / 群 / 群发任一选中即进入会话视图。
+    return ValueListenableBuilder<String?>(
+      valueListenable: widget.service.selectedPeerNotifier,
+      builder: (context, selected, _) {
+        final selectedKind = selected == null
+            ? 'none'
+            : (selected.startsWith('group-')
+                ? 'group'
+                : (selected == 'broadcast' ? 'broadcast' : 'peer'));
+        final inChat = selected != null &&
+            (selectedKind == 'peer'
+                ? widget.service.peer(selected) != null
+                : true);
 
-    if (inChat) {
-      return Stack(
-        children: [
-          ChatPane(service: widget.service),
-          Positioned(
-            top: 8,
-            left: 8,
-            child: Material(
-              color: Theme.of(context)
-                  .colorScheme
-                  .surface
-                  .withValues(alpha: 0.9),
-              shape: const CircleBorder(),
-              elevation: 2,
-              child: IconButton(
-                tooltip: '返回设备列表',
-                icon: const Icon(Icons.arrow_back),
-                onPressed: () => widget.service.select(null),
+        if (inChat) {
+          return Stack(
+            children: [
+              ChatPane(service: widget.service),
+              Positioned(
+                top: 8,
+                left: 8,
+                child: Material(
+                  color: Theme.of(context)
+                      .colorScheme
+                      .surface
+                      .withValues(alpha: 0.9),
+                  shape: const CircleBorder(),
+                  elevation: 2,
+                  child: IconButton(
+                    tooltip: '返回设备列表',
+                    icon: const Icon(Icons.arrow_back),
+                    onPressed: () => widget.service.select(null),
+                  ),
+                ),
               ),
+            ],
+          );
+        }
+        return Scaffold(
+          body: SafeArea(
+            child: Stack(
+              children: [
+                PeerList(service: widget.service),
+                if (widget.service.peersNotifier.value.isEmpty)
+                  const Center(
+                    child: Text('还没有发现设备\n打开另一台设备上的 LanChat',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.grey)),
+                  ),
+              ],
             ),
           ),
-        ],
-      );
-    }
-    return Scaffold(
-      body: SafeArea(
-        child: Stack(
-          children: [
-            PeerList(service: widget.service),
-            if (widget.service.peersNotifier.value.isEmpty)
-              const Center(
-                child: Text('还没有发现设备\n打开另一台设备上的 LanChat',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(color: Colors.grey)),
-              ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton.small(
-        tooltip: '手动添加设备',
-        onPressed: () => showAddPeerDialog(widget.service),
-        child: const Icon(Icons.add),
-      ),
+          floatingActionButton: FloatingActionButton.small(
+            tooltip: '手动添加设备',
+            onPressed: () => showAddPeerDialog(widget.service),
+            child: const Icon(Icons.add),
+          ),
+        );
+      },
     );
   }
 

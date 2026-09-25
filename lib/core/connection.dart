@@ -74,19 +74,16 @@ class ConnectionManager implements TransferSignaler {
     _server = null;
   }
 
-  /// 尝试向对端发起连接。
+/// 尝试向对端发起连接。
   ///
-  /// 拨号方向采用确定性规则避免双向拨号导致的连接抖动：仅当本机设备
-  /// ID 字典序小于对端时才由我方拨号，否则等待对端拨号。失败静默，
-  /// 由发现层稍后重试。
+  /// 双向都会主动拨号(不再按设备 ID 仲裁),配合 _conns 去重与替换收敛:
+  /// - 已存在同一 peer 的连接则跳过;
+  /// - 新连接到来时关闭旧连接,保证最终收敛到一条。
+  /// 这样避免"仅 ID 小者拨号"导致当另一侧无法作为服务器时连接永远建立不起来。
   Future<void> connectTo(Peer peer) async {
     if (_closed || _conns.containsKey(peer.id)) return;
     final host = peer.host;
     if (host == null) return;
-    if (self.id.compareTo(peer.id) >= 0) {
-      // 对端（字典序更小）负责拨号，本机仅作为服务器被动接受。
-      return;
-    }
 
     final last = _lastDial[peer.id];
     if (last != null &&

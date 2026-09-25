@@ -12,6 +12,7 @@ import 'file_transfer.dart';
 import 'group.dart';
 import 'local_notifier.dart';
 import 'pair_crypto.dart';
+import 'platform_keepalive.dart';
 import 'voice_service.dart';
 
 /// 聊天会话中的一条消息（UI 直接消费）。
@@ -181,6 +182,8 @@ late DeviceDiscovery _discovery;
     if (LocalNotifier.supported) {
       await notifier.init();
     }
+    // Android 需持有组播锁才能收到 UDP 广播/组播(发现与收消息的前提)。
+    await PlatformKeepAlive.acquireMulticastLock();
 
     _conn = ConnectionManager(
       self: self,

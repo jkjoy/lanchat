@@ -1,8 +1,11 @@
 package com.lanchat.lanchat
 
 import android.content.ContentValues
+import android.content.Context
+import android.net.wifi.WifiManager
 import android.os.Build
 import android.os.Environment
+import android.os.PowerManager
 import android.provider.MediaStore
 import androidx.annotation.NonNull
 import io.flutter.embedding.android.FlutterActivity
@@ -40,8 +43,29 @@ class MainActivity : FlutterActivity() {
                     KeepAliveService.stop(this)
                     result.success(true)
                 }
+                "acquireMulticastLock" -> {
+                    // Android 默认不接收组播;持锁以便收 UDP 广播/组播。
+                    acquireMulticastLockSafely()
+                    result.success(true)
+                }
                 else -> result.notImplemented()
             }
+        }
+    }
+
+    // MulticastLock 单例,便于多次调用不重复加锁。
+    private var multicastLock: WifiManager.MulticastLock? = null
+
+    private fun acquireMulticastLockSafely() {
+        try {
+            if (multicastLock?.isHeld == true) return
+            val wifi = applicationContext.getSystemService(Context.WIFI_SERVICE) as WifiManager
+            multicastLock = wifi.createMulticastLock("lanchat")?.apply {
+                setReferenceCounted(false)
+                acquire()
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("LanChat", "MulticastLock failed: ${e.message}")
         }
     }
 

@@ -38,4 +38,16 @@ class PlatformKeepAlive {
   }
 
   static bool get enabled => _lastState;
+
+  /// 请求 Android 持有 MulticastLock,以便收到 UDP 广播/组播。
+  /// 非 Android 平台为空操作。
+  static Future<void> acquireMulticastLock() async {
+    if (!isSupported) return;
+    try {
+      await _channel.invokeMethod('acquireMulticastLock');
+      debugPrint('[keepalive] MulticastLock acquired');
+    } catch (e) {
+      debugPrint('[keepalive] acquireMulticastLock 失败: $e');
+    }
+  }
 }
