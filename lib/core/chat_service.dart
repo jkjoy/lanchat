@@ -501,6 +501,16 @@ void select(String? peerId) {
     }
   }
 
+  /// 从系统相册选择图片并发送(Android/iOS/桌面通用,file_picker 图片模式)。
+  Future<void> sendImage(String peerId) async {
+    final peer = _peers[peerId];
+    if (peer == null) return;
+    final picked = await FilePicker.pickFiles(type: FileType.image);
+    final path = picked.isNotEmpty ? picked.first.path : null;
+    if (path == null || path.isEmpty) return;
+    await sendFilePath(peerId, path);
+  }
+
   /// 手动添加设备（mDNS/广播失效时的兜底入口）。
   Future<void> addManualPeer(String host) async {
     final existing = _peers.values.where((p) => p.host == host).toList();

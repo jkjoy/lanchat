@@ -291,6 +291,12 @@ class _ComposerState extends State<_Composer> {
               icon: const Icon(Icons.attach_file),
             ),
             const SizedBox(width: 4),
+            IconButton(
+              tooltip: '从相册选择图片发送',
+              onPressed: () => widget.service.sendImage(widget.peerId),
+              icon: const Icon(Icons.photo_library_outlined),
+            ),
+            const SizedBox(width: 4),
             Expanded(
               child: TextField(
                 controller: _controller,

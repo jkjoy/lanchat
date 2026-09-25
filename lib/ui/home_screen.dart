@@ -124,9 +124,10 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: ValueListenableBuilder<String?>(
         valueListenable: widget.service.selectedPeerNotifier,
         builder: (context, selected, _) {
-          // 群发入口:移动端用 FAB,桌面端在设备列表底部。
+          // 仅窄屏(移动端)显示群发 FAB;进入任一会话时隐藏,避免遮挡发送按钮。
           final isNarrow = MediaQuery.of(context).size.width < 720;
           if (!isNarrow) return const SizedBox.shrink();
+          if (selected != null) return const SizedBox.shrink();
           return FloatingActionButton.small(
             tooltip: '群发消息',
             onPressed: () => _showBroadcastDialog(context),
