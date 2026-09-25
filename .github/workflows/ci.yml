@@ -132,6 +132,8 @@ jobs:
     needs: [analyze_test, build_android, build_windows, build_macos]
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
