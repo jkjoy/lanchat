@@ -353,8 +353,14 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildMobile(BuildContext context) {
+    // 有选中会话(私聊对端 / 群 / 群发)时进入会话视图。
     final selected = widget.service.selectedPeerNotifier.value;
-    if (selected != null && widget.service.peer(selected) != null) {
+    final selectedKind =
+        selected == null ? 'none' : (selected.startsWith('group-') ? 'group' : (selected == 'broadcast' ? 'broadcast' : 'peer'));
+    final inChat = selected != null &&
+        (selectedKind == 'peer' ? widget.service.peer(selected) != null : true);
+
+    if (inChat) {
       return Stack(
         children: [
           ChatPane(service: widget.service),

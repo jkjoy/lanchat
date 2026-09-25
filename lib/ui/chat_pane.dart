@@ -17,46 +17,52 @@ class ChatPane extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final peer = service.selectedPeer;
-    final isBroadcast = peer == null && service.isBroadcastView;
-    final isGroup = service.selectedGroup != null;
-    final headerPeer = isGroup ? null : peer;
-    final composerPeerId = isGroup
-        ? service.selectedGroup!.id
-        : (isBroadcast ? 'broadcast' : peer?.id);
+    // 选中会话变化时整体重绘(标题栏/输入栏/列表的显隐都依赖选中态)。
+    return ValueListenableBuilder<String?>(
+      valueListenable: service.selectedPeerNotifier,
+      builder: (context, _, _) {
+        final peer = service.selectedPeer;
+        final isBroadcast = peer == null && service.isBroadcastView;
+        final isGroup = service.selectedGroup != null;
+        final headerPeer = isGroup ? null : peer;
+        final composerPeerId = isGroup
+            ? service.selectedGroup!.id
+            : (isBroadcast ? 'broadcast' : peer?.id);
 
-    // 桌面端:整个会话窗格作为拖放区,拖入文件即发送。
-    return DropTarget(
-      onDragDone: (details) {
-        final files = details.files;
-        if (files.isEmpty) return;
-        for (final item in files) {
-          final p = item.path;
-          if (File(p).existsSync()) {
-            service.sendFilePath(peer?.id, p);
-          }
-        }
-      },
-      child: Column(
-        children: [
-          if (headerPeer != null || isBroadcast || isGroup)
-            _ChatHeader(peer: headerPeer, group: service.selectedGroup),
-          const Divider(height: 1),
-          Expanded(
-            child: (peer == null && !isBroadcast && !isGroup)
-                ? const _EmptyState()
-                : _MessageList(service: service),
+        // 桌面端:整个会话窗格作为拖放区,拖入文件即发送。
+        return DropTarget(
+          onDragDone: (details) {
+            final files = details.files;
+            if (files.isEmpty) return;
+            for (final item in files) {
+              final p = item.path;
+              if (File(p).existsSync()) {
+                service.sendFilePath(peer?.id, p);
+              }
+            }
+          },
+          child: Column(
+            children: [
+              if (headerPeer != null || isBroadcast || isGroup)
+                _ChatHeader(peer: headerPeer, group: service.selectedGroup),
+              const Divider(height: 1),
+              Expanded(
+                child: (peer == null && !isBroadcast && !isGroup)
+                    ? const _EmptyState()
+                    : _MessageList(service: service),
+              ),
+              (headerPeer != null || isBroadcast || isGroup)
+                  ? _Composer(
+                      service: service,
+                      peerId: composerPeerId ?? '',
+                      broadcast: isBroadcast,
+                      group: isGroup,
+                    )
+                  : const SizedBox.shrink(),
+            ],
           ),
-          (headerPeer != null || isBroadcast || isGroup)
-              ? _Composer(
-                  service: service,
-                  peerId: composerPeerId ?? '',
-                  broadcast: isBroadcast,
-                  group: isGroup,
-                )
-              : const SizedBox.shrink(),
-        ],
-      ),
+        );
+      },
     );
   }
 }
