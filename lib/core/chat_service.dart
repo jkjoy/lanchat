@@ -747,7 +747,7 @@ debugPrint('[resend] 补发 pending 消息完成 ($peerId)');
       if (selectedPeerNotifier.value == gid) _refreshMessages();
       sessionTick.value++;
       _markUnread(gid);
-      _notifyIncoming('${g.name} . ${senderName}', text);
+      _notifyIncoming('$g.name $senderName', text);
 
       // 回送群已读回执:向其他成员广播本机已送达+已读该消息。
       if (env.from != self.id) {
