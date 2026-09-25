@@ -154,5 +154,7 @@ jobs:
             artifacts/lanchat-windows/**/*.exe
             artifacts/lanchat-macos/**/*.zip
           body_path: notes.md
-          generate_release_notes: true
           fail_on_unmatched_files: false
+        env:
+          # 使用仓库默认 GITHUB_TOKEN 权限即可;显式权限由仓库设置控制
+          GITHUB_TOKEN: ${{ github.token }}
