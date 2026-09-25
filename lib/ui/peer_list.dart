@@ -110,38 +110,87 @@ class GroupList extends StatelessWidget {
             for (final g in groups)
               ValueListenableBuilder<Map<String, int>>(
                 valueListenable: service.unreadMap,
-                builder: (context, unread, _) => ListTile(
-                  dense: true,
-                  leading: Icon(Icons.group_outlined, size: 20),
-                  title: Row(
-                    children: [
-                      Expanded(
-                        child: Text(g.name,
-                            maxLines: 1, overflow: TextOverflow.ellipsis),
-                      ),
-                      if ((unread[g.id] ?? 0) > 0)
-                        Container(
+                builder: (context, unread, _) {
+                  final scheme = Theme.of(context).colorScheme;
+                  final isSelected =
+                      service.selectedPeerNotifier.value == g.id;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 8, vertical: 2),
+                    child: Material(
+                      color: isSelected
+                          ? scheme.primary.withValues(alpha: 0.12)
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(14),
+                      child: InkWell(
+                        borderRadius: BorderRadius.circular(14),
+                        onTap: () => service.select(g.id),
+                        child: Padding(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.error,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          child: Text(
-                            '${unread[g.id]}',
-                            style: TextStyle(
-                                fontSize: 11,
-                                color: Theme.of(context).colorScheme.onError,
-                                fontWeight: FontWeight.w600),
+                              horizontal: 6, vertical: 8),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: [
+                                      Color(0xFF7C4DFF),
+                                      Color(0xFF536DFE)
+                                    ],
+                                  ),
+                                  borderRadius: BorderRadius.circular(11),
+                                ),
+                                child: const Icon(Icons.group_rounded,
+                                    color: Colors.white, size: 19),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(g.name,
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 14.5)),
+                                    const SizedBox(height: 1),
+                                    Text('${g.memberIds.length} 人',
+                                        style: TextStyle(
+                                            fontSize: 12,
+                                            color: scheme
+                                                .onSurfaceVariant)),
+                                  ],
+                                ),
+                              ),
+                              if ((unread[g.id] ?? 0) > 0)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: scheme.error,
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: Text(
+                                    '${unread[g.id]}',
+                                    style: TextStyle(
+                                        fontSize: 11,
+                                        color: scheme.onError,
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
-                    ],
-                  ),
-                  subtitle: Text('${g.memberIds.length} 人',
-                      style: const TextStyle(fontSize: 12)),
-                  selected: service.selectedPeerNotifier.value == g.id,
-                  onTap: () => service.select(g.id),
-                ),
+                      ),
+                    ),
+                  );
+                },
               ),
             const Divider(height: 1),
           ],
@@ -160,13 +209,57 @@ class _BroadcastTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return ListTile(
-      selected: selected,
-      selectedTileColor: scheme.secondaryContainer.withValues(alpha: 0.4),
-      leading: const Icon(Icons.campaign_outlined),
-      title: const Text('群发消息'),
-      subtitle: const Text('发送给所有在线设备', style: TextStyle(fontSize: 12)),
-      onTap: () => service.select('broadcast'),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: Material(
+        color: selected
+            ? scheme.primary.withValues(alpha: 0.12)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => service.select('broadcast'),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            child: Row(
+              children: [
+                Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                      colors: [Color(0xFFFF9F43), Color(0xFFEE5A24)],
+                    ),
+                    borderRadius: BorderRadius.circular(13),
+                  ),
+                  child: const Icon(Icons.campaign_rounded,
+                      color: Colors.white, size: 22),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('群发消息',
+                          style: TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 14.5)),
+                      const SizedBox(height: 2),
+                      Text(
+                        '发送给所有在线设备',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: scheme.onSurfaceVariant),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
     );
   }
 }
@@ -187,43 +280,67 @@ class _PeerTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return ListTile(
-      selected: selected,
-      selectedTileColor: scheme.secondaryContainer.withValues(alpha: 0.4),
-      leading: _PeerAvatar(peer: peer),
-      title: Row(
-        children: [
-          Expanded(
-            child: Text(peer.name,
-                maxLines: 1, overflow: TextOverflow.ellipsis),
-          ),
-          if (unread > 0)
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-              decoration: BoxDecoration(
-                color: scheme.error,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                unread > 99 ? '99+' : '$unread',
-                style: TextStyle(
-                    fontSize: 11,
-                    color: scheme.onError,
-                    fontWeight: FontWeight.w600),
-              ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+      child: Material(
+        color: selected
+            ? scheme.primary.withValues(alpha: 0.12)
+            : Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: () => service.select(peer.id),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+            child: Row(
+              children: [
+                _PeerAvatar(peer: peer),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(peer.name,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 14.5)),
+                      const SizedBox(height: 2),
+                      Text(
+                        peer.online ? peer.platformLabel : '离线',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: peer.online
+                              ? scheme.primary
+                              : scheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (unread > 0)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: scheme.error,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      unread > 99 ? '99+' : '$unread',
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: scheme.onError,
+                          fontWeight: FontWeight.w600),
+                    ),
+                  ),
+              ],
             ),
-        ],
-      ),
-      subtitle: Text(
-        peer.online ? peer.platformLabel : '离线',
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-        style: TextStyle(
-          fontSize: 12,
-          color: peer.online ? scheme.primary : scheme.onSurfaceVariant,
+          ),
         ),
       ),
-      onTap: () => service.select(peer.id),
     );
   }
 }
@@ -236,26 +353,64 @@ class _PeerAvatar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    final color = peer.online ? scheme.primary : scheme.surfaceContainerHighest;
-    final letter = peer.name.isEmpty ? '?' : peer.name[0].toUpperCase();
+
+    // 平台专属图标与配色。
+    final (IconData icon, List<Color> colors) = switch (peer.platform) {
+      'windows' => (
+          Icons.laptop_windows_rounded,
+          [const Color(0xFF00A4EF), const Color(0xFF0078D4)]
+        ),
+      'android' => (
+          Icons.phone_android_rounded,
+          [const Color(0xFF3DDC84), const Color(0xFF2BB673)]
+        ),
+      'macos' => (
+          Icons.laptop_mac_rounded,
+          [const Color(0xFFA2AAAD), const Color(0xFF6E6E73)]
+        ),
+      'linux' => (
+          Icons.terminal_rounded,
+          [const Color(0xFFf9bc4e), const Color(0xFFe95420)]
+        ),
+      _ => (
+          Icons.devices_rounded,
+          [scheme.primary, scheme.tertiary]
+        ),
+    };
+
+    final dimmed = !peer.online;
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        CircleAvatar(
-          radius: 18,
-          backgroundColor: color.withValues(alpha: 0.25),
-          child: Text(letter, style: TextStyle(color: color, fontWeight: FontWeight.bold)),
+        Container(
+          width: 42,
+          height: 42,
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: dimmed
+                  ? colors
+                      .map((c) => c.withValues(alpha: 0.35))
+                      .toList()
+                  : colors,
+            ),
+            borderRadius: BorderRadius.circular(13),
+          ),
+          child: Icon(icon, color: Colors.white, size: 21),
         ),
+        // 在线状态点。
         Positioned(
           right: -2,
           bottom: -2,
           child: Container(
-            width: 12,
-            height: 12,
+            width: 13,
+            height: 13,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: peer.online ? Colors.green : scheme.outlineVariant,
-              border: Border.all(color: scheme.surface, width: 2),
+              color: peer.online ? const Color(0xFF34C759) : scheme.outlineVariant,
+              border: Border.all(
+                  color: Theme.of(context).scaffoldBackgroundColor, width: 2.5),
             ),
           ),
         ),

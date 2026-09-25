@@ -80,26 +80,80 @@ class _ChatHeader extends StatelessWidget {
     final name = isGroup
         ? group!.name
         : (isBroadcast ? '群发消息' : (peer?.name ?? ''));
+    final online = isBroadcast || isGroup ? true : (peer?.online ?? false);
     final memberInfo = isGroup ? '${group!.memberIds.length} 人' : null;
+
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
       child: Row(
         children: [
-          if (isBroadcast)
-            const Icon(Icons.campaign_outlined, size: 18)
-          else if (isGroup)
-            const Icon(Icons.group_outlined, size: 18),
-          if (isBroadcast || isGroup) const SizedBox(width: 6),
-          Text(name,
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  )),
-          if (memberInfo != null) ...[
-            const SizedBox(width: 8),
-            Text(memberInfo,
-                style: TextStyle(
-                    fontSize: 12, color: Theme.of(context).colorScheme.primary)),
-          ],
+          // 会话头像:群用群图标,群发用喇叭,私聊用首字。
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  Theme.of(context).colorScheme.primary,
+                  Theme.of(context).colorScheme.tertiary,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Center(
+              child: isBroadcast
+                  ? const Icon(Icons.campaign_rounded,
+                      color: Colors.white, size: 20)
+                  : isGroup
+                      ? const Icon(Icons.group_rounded,
+                          color: Colors.white, size: 20)
+                      : Text(
+                          name.isEmpty ? '?' : name[0].toUpperCase(),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                          ),
+                        ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        )),
+                const SizedBox(height: 1),
+                Row(
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: online ? const Color(0xFF34C759) : Colors.grey,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      memberInfo ?? (online ? '在线' : '离线'),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -144,26 +198,59 @@ class _Bubble extends StatelessWidget {
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
     final mine = msg.outbound;
-    final bg = mine ? scheme.primaryContainer : scheme.surfaceContainerHighest;
-    final fg = mine ? scheme.onPrimaryContainer : scheme.onSurface;
+
+    // 不对称圆角:靠近发送侧的一角收窄,形成方向感。
+    final radius = BorderRadius.only(
+      topLeft: const Radius.circular(18),
+      topRight: const Radius.circular(18),
+      bottomLeft: Radius.circular(mine ? 18 : 5),
+      bottomRight: Radius.circular(mine ? 5 : 18),
+    );
+
+    final BoxDecoration decoration = mine
+        ? BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [scheme.primary, scheme.primary.withValues(alpha: 0.82)],
+            ),
+            borderRadius: radius,
+            boxShadow: [
+              BoxShadow(
+                color: scheme.primary.withValues(alpha: 0.28),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          )
+        : BoxDecoration(
+            color: scheme.surfaceContainerHighest.withValues(alpha: 0.9),
+            borderRadius: radius,
+            border: Border.all(
+              color: scheme.outlineVariant.withValues(alpha: 0.35),
+            ),
+          );
+
+    final fg = mine ? Colors.white : scheme.onSurface;
 
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: Container(
-        margin: const EdgeInsets.symmetric(vertical: 4),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        margin: const EdgeInsets.symmetric(vertical: 5, horizontal: 4),
+        padding: const EdgeInsets.fromLTRB(14, 9, 14, 7),
         constraints: BoxConstraints(
           maxWidth: MediaQuery.of(context).size.width * 0.72,
         ),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(14),
-        ),
+        decoration: decoration,
         child: Column(
           crossAxisAlignment:
               mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
           children: [
-            Text(msg.text, style: TextStyle(color: fg, fontSize: 15)),
+            SelectableText(
+              msg.text,
+              style: TextStyle(
+                  color: fg, fontSize: 15, height: 1.35, letterSpacing: 0.1),
+            ),
             const SizedBox(height: 3),
             Row(
               mainAxisSize: MainAxisSize.min,
@@ -171,15 +258,22 @@ class _Bubble extends StatelessWidget {
                 Text(
                   _fmtTime(msg.ts),
                   style: TextStyle(
-                      fontSize: 10, color: fg.withValues(alpha: 0.6)),
+                      fontSize: 10,
+                      color: mine
+                          ? Colors.white.withValues(alpha: 0.75)
+                          : fg.withValues(alpha: 0.45)),
                 ),
                 if (mine) ...[
                   const SizedBox(width: 4),
-                  Icon(msg.status == 'delivered' ? Icons.done_all : Icons.done,
-                      size: 13,
-                      color: msg.status == 'delivered'
-                          ? scheme.primary
-                          : fg.withValues(alpha: 0.5)),
+                  Icon(
+                    msg.status == 'delivered'
+                        ? Icons.done_all_rounded
+                        : Icons.done_rounded,
+                    size: 14,
+                    color: msg.status == 'delivered'
+                        ? Colors.white
+                        : Colors.white.withValues(alpha: 0.6),
+                  ),
                 ],
               ],
             ),
@@ -279,63 +373,98 @@ class _ComposerState extends State<_Composer> {
 
 @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return SafeArea(
       top: false,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-        child: Row(
-          children: [
-            IconButton(
-              tooltip: '发送文件',
-              onPressed: () => widget.service.sendFile(widget.peerId, context),
-              icon: const Icon(Icons.attach_file),
-            ),
-            const SizedBox(width: 4),
-            IconButton(
-              tooltip: '从相册选择图片发送',
-              onPressed: () => widget.service.sendImage(widget.peerId),
-              icon: const Icon(Icons.photo_library_outlined),
-            ),
-            const SizedBox(width: 4),
-            Expanded(
-              child: TextField(
-                controller: _controller,
-                minLines: 1,
-                maxLines: 4,
-                textInputAction: TextInputAction.send,
-                onSubmitted: (_) => _send(),
-                decoration: const InputDecoration(
-                  hintText: '输入消息...',
-                  isDense: true,
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.all(Radius.circular(20)),
-                  ),
-                  contentPadding:
-                      EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                ),
-              ),
-            ),
-            const SizedBox(width: 8),
-            IconButton(
-              tooltip: _recording ? '停止录音并发送' : '按住录音发送',
-              onPressed: _toggleRecord,
-              icon: Icon(
-                _recording ? Icons.stop_circle : Icons.mic,
-                color: _recording ? Colors.red : null,
-              ),
-            ),
-            const SizedBox(width: 4),
-            IconButton(
-              tooltip: '粘贴图片发送',
-              onPressed: _pasteImage,
-              icon: const Icon(Icons.image_outlined),
-            ),
-            const SizedBox(width: 4),
-            IconButton.filled(
-              onPressed: _send,
-              icon: const Icon(Icons.send),
+      child: Container(
+        decoration: BoxDecoration(
+          color: scheme.surface,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.05),
+              blurRadius: 10,
+              offset: const Offset(0, -2),
             ),
           ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              IconButton(
+                tooltip: '发送文件',
+                onPressed: () =>
+                    widget.service.sendFile(widget.peerId, context),
+                icon: const Icon(Icons.attach_file_rounded),
+              ),
+              IconButton(
+                tooltip: '从相册选择图片发送',
+                onPressed: () => widget.service.sendImage(widget.peerId),
+                icon: const Icon(Icons.photo_library_outlined),
+              ),
+              Expanded(
+                child: TextField(
+                  controller: _controller,
+                  minLines: 1,
+                  maxLines: 4,
+                  textInputAction: TextInputAction.send,
+                  onSubmitted: (_) => _send(),
+                  decoration: const InputDecoration(
+                    hintText: '输入消息...',
+                    isDense: true,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              IconButton(
+                tooltip: _recording ? '停止录音并发送' : '录音发送',
+                onPressed: _toggleRecord,
+                icon: Icon(
+                  _recording ? Icons.stop_circle_rounded : Icons.mic_rounded,
+                  color: _recording ? scheme.error : null,
+                ),
+              ),
+              IconButton(
+                tooltip: '粘贴图片发送',
+                onPressed: _pasteImage,
+                icon: const Icon(Icons.content_paste_rounded),
+              ),
+              const SizedBox(width: 2),
+              // 渐变发送按钮。
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  borderRadius: BorderRadius.circular(22),
+                  onTap: _send,
+                  child: Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          scheme.primary,
+                          scheme.primary.withValues(alpha: 0.8),
+                        ],
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: scheme.primary.withValues(alpha: 0.35),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.send_rounded,
+                        color: Colors.white, size: 20),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -347,20 +476,43 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.wifi_tethering,
-              size: 56, color: Theme.of(context).colorScheme.outlineVariant),
-          const SizedBox(height: 12),
-          const Text('从左侧选择一台设备开始聊天'),
-          const SizedBox(height: 4),
+          // 渐变圆环 + 中心图标,替代单色大图标。
+          Container(
+            width: 96,
+            height: 96,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  scheme.primary.withValues(alpha: 0.16),
+                  scheme.tertiary.withValues(alpha: 0.10),
+                ],
+              ),
+            ),
+            child: Icon(Icons.wifi_tethering_rounded,
+                size: 44, color: scheme.primary.withValues(alpha: 0.75)),
+          ),
+          const SizedBox(height: 18),
+          Text('选择一台设备开始聊天',
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700)),
+          const SizedBox(height: 6),
           Text(
-            '在局域网内打开本应用的设备会自动出现\n也可以点击"手动添加设备"输入 IP',
+            '同一局域网内打开 LanChat 的设备会自动出现\n也可以点击 + 手动输入对方 IP',
             textAlign: TextAlign.center,
-            style:
-                TextStyle(fontSize: 12, color: Colors.grey[600]),
+            style: TextStyle(
+                fontSize: 12.5,
+                height: 1.6,
+                color: scheme.onSurfaceVariant.withValues(alpha: 0.8)),
           ),
         ],
       ),
