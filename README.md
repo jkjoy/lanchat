@@ -54,6 +54,12 @@ flutter run -d <device>
 
 两台设备都打开应用(同一局域网),即可在设备列表看到对方并开始聊天。
 
+### Windows 安装
+
+从 GitHub Release 下载 `lanchat-windows-x64-setup.exe` 并运行即可。也可以下载便携版 `lanchat-windows-x64.zip`,完整解压后再运行其中的 `lanchat.exe`。
+
+Windows 客户端依赖同目录内的 Flutter 和插件 DLL,不能只复制或单独运行压缩包中的 `lanchat.exe`。
+
 ## 架构
 
 ```

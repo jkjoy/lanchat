@@ -88,11 +88,55 @@ jobs:
       - name: Build Windows (release)
         run: flutter build windows --release
 
+      - name: Verify Windows bundle
+        shell: pwsh
+        run: |
+          $bundle = 'build/windows/x64/runner/Release'
+          $required = @(
+            'lanchat.exe',
+            'flutter_windows.dll',
+            'desktop_drop_plugin.dll',
+            'pasteboard_plugin.dll',
+            'record_windows_plugin.dll',
+            'data/app.so',
+            'data/icudtl.dat',
+            'data/flutter_assets/AssetManifest.bin'
+          )
+          $missing = $required | Where-Object {
+            -not (Test-Path (Join-Path $bundle $_))
+          }
+          if ($missing) {
+            throw "Windows bundle is incomplete. Missing: $($missing -join ', ')"
+          }
+
+      - name: Package Windows client
+        shell: pwsh
+        run: |
+          $bundle = 'build/windows/x64/runner/Release'
+          $version = if ($env:GITHUB_REF_TYPE -eq 'tag') {
+            $env:GITHUB_REF_NAME.TrimStart('v')
+          } else {
+            ((Select-String -Path pubspec.yaml -Pattern '^version:\s*([^+\s]+)').Matches[0].Groups[1].Value)
+          }
+
+          Compress-Archive -Path "$bundle/*" -DestinationPath 'build/lanchat-windows-x64.zip'
+
+          $iscc = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6/ISCC.exe'
+          if (-not (Test-Path $iscc)) {
+            choco install innosetup --no-progress -y
+          }
+          & $iscc "/DAppVersion=$version" 'windows/installer/lanchat.iss'
+          if ($LASTEXITCODE -ne 0) {
+            throw "Inno Setup failed with exit code $LASTEXITCODE"
+          }
+
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: lanchat-windows
-          path: build/windows/x64/runner/Release/**/*.exe
+          path: |
+            build/lanchat-windows-x64-setup.exe
+            build/lanchat-windows-x64.zip
           if-no-files-found: error
 
   build_macos:
@@ -197,7 +241,8 @@ jobs:
         with:
           files: |
             artifacts/lanchat-android/**/*.apk
-            artifacts/lanchat-windows/**/*.exe
+            artifacts/lanchat-windows/lanchat-windows-x64-setup.exe
+            artifacts/lanchat-windows/lanchat-windows-x64.zip
             artifacts/lanchat-macos/**/*.zip
             artifacts/lanchat-linux/**/*.deb
           body_path: notes.md

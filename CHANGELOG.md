@@ -1,5 +1,11 @@
 # LanChat 更新日志
 
+## v1.2.1 (2026-09-26)
+
+### 修复
+
+- Windows Release 改为发布完整安装程序和便携 ZIP,不再发布缺少 Flutter 及插件 DLL 的单独 EXE
+
 ## v1.1.0 (2026-09-25)
 
 新增 Linux 桌面版,提供 Debian/Ubuntu 的 .deb 安装包。
